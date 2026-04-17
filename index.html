@@ -25,6 +25,9 @@
       --danger:        #ef4444;
       --danger-soft:   rgba(239,68,68,0.15);
       --danger-glow:   rgba(239,68,68,0.4);
+      --success:       #22c55e;
+      --success-soft:  rgba(34,197,94,0.12);
+      --success-glow:  rgba(34,197,94,0.28);
       --text-primary:  #f1f5f9;
       --text-secondary:#94a3b8;
       --text-muted:    #475569;
@@ -35,6 +38,7 @@
       --transition:    150ms ease;
       --z-header:      10;
       --z-modal:       100;
+      --z-chat:        200;
     }
 
     html { scroll-behavior: smooth; }
@@ -146,7 +150,7 @@
       border: 1px solid var(--border-card);
       border-radius: var(--radius-card);
       padding: 14px 12px;
-      transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+      transition: border-color 300ms ease, box-shadow 300ms ease, background 300ms ease;
       animation: task-add-in 200ms ease;
     }
 
@@ -175,6 +179,20 @@
     }
 
     .task-card.dragging { opacity: 0.35; }
+
+    /* ── COMPLETED STATE ── */
+    .task-card.completed {
+      border-color: rgba(34,197,94,0.4);
+      background: rgba(34,197,94,0.05);
+      box-shadow: 0 0 0 1px rgba(34,197,94,0.12);
+    }
+    .task-card.completed:hover {
+      background: rgba(34,197,94,0.08);
+      border-color: rgba(34,197,94,0.55);
+    }
+    .task-card.completed .task-name { color: var(--text-secondary); }
+    .task-card.completed .timer-display { color: var(--success) !important; }
+    .task-card.completed .drag-handle { opacity: 0.25; pointer-events: none; }
 
     /* ── DRAG HANDLE ── */
     .drag-handle {
@@ -211,7 +229,6 @@
     }
     .task-name:hover { color: var(--accent-hover); }
 
-
     /* ── TIMER SECTION ── */
     .task-timer-section {
       display: flex;
@@ -231,6 +248,16 @@
       white-space: nowrap;
     }
     .timer-display:hover { color: var(--accent-hover); }
+    .timer-display.readonly { cursor: default; }
+    .timer-display.readonly:hover { color: inherit; }
+
+    /* ── TIMER BUTTONS ROW ── */
+    .task-timer-buttons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      justify-content: flex-end;
+    }
 
     .btn-start-pause {
       background: none;
@@ -253,6 +280,38 @@
     .task-card.running .btn-start-pause {
       color: var(--accent-hover);
       border-color: var(--accent);
+    }
+
+    /* ── COMPLETE BUTTON ── */
+    .btn-complete {
+      background: none;
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      transition: color var(--transition), border-color var(--transition), background var(--transition);
+      white-space: nowrap;
+      line-height: 1.4;
+    }
+    .btn-complete:hover {
+      color: var(--success);
+      border-color: var(--success);
+      background: var(--success-soft);
+    }
+
+    .btn-start-pause.reopen {
+      color: var(--success);
+      border-color: rgba(34,197,94,0.4);
+      background: var(--success-soft);
+    }
+    .btn-start-pause.reopen:hover {
+      color: #fff;
+      border-color: var(--success);
+      background: rgba(34,197,94,0.28);
     }
 
     /* ── DELETE BUTTON ── */
@@ -434,12 +493,312 @@
       60%       { transform: translateX(5px); }
     }
 
+    @keyframes complete-flash {
+      0%   { box-shadow: 0 0 0 1px rgba(34,197,94,0.12); }
+      40%  { box-shadow: 0 0 0 3px rgba(34,197,94,0.5), 0 0 24px rgba(34,197,94,0.25); }
+      100% { box-shadow: 0 0 0 1px rgba(34,197,94,0.12); }
+    }
+
+    .task-card.completing {
+      animation: complete-flash 500ms ease forwards;
+    }
+
+    /* ── CHAT FAB ── */
+    #chat-fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      font-size: 1.3rem;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.45);
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+      z-index: var(--z-chat);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    #chat-fab:hover {
+      background: var(--accent-hover);
+      transform: scale(1.08);
+      box-shadow: 0 6px 28px rgba(99,102,241,0.55);
+    }
+    #chat-fab:active { transform: scale(0.96); }
+
+    /* ── CHAT PANEL ── */
+    #chat-panel {
+      position: fixed;
+      bottom: 88px;
+      right: 24px;
+      width: 360px;
+      height: 520px;
+      background: #17171f;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+      z-index: calc(var(--z-chat) - 1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: chat-slide-in 220ms cubic-bezier(0.34,1.28,0.64,1);
+    }
+    #chat-panel.hidden { display: none !important; }
+
+    @keyframes chat-slide-in {
+      from { opacity: 0; transform: translateY(20px) scale(0.96); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ── CHAT HEADER ── */
+    #chat-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      flex-shrink: 0;
+    }
+
+    #chat-header-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    #chat-header h3 {
+      flex: 1;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .chat-icon-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color var(--transition), background var(--transition);
+      flex-shrink: 0;
+    }
+    .chat-icon-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.07); }
+
+    /* ── CHAT MESSAGES ── */
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.08) transparent;
+    }
+    #chat-messages::-webkit-scrollbar { width: 4px; }
+    #chat-messages::-webkit-scrollbar-track { background: transparent; }
+    #chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+
+    .chat-msg {
+      display: flex;
+      flex-direction: column;
+      max-width: 88%;
+    }
+    .chat-msg.user    { align-self: flex-end;  align-items: flex-end; }
+    .chat-msg.bot     { align-self: flex-start; align-items: flex-start; }
+    .chat-msg.error   { align-self: flex-start; align-items: flex-start; }
+
+    .chat-bubble {
+      padding: 9px 13px;
+      border-radius: 14px;
+      font-size: 0.84rem;
+      line-height: 1.55;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    .chat-msg.user .chat-bubble {
+      background: var(--accent);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .chat-msg.bot .chat-bubble {
+      background: rgba(255,255,255,0.07);
+      color: var(--text-primary);
+      border-bottom-left-radius: 4px;
+    }
+    .chat-msg.error .chat-bubble {
+      background: var(--danger-soft);
+      color: #fca5a5;
+      border: 1px solid rgba(239,68,68,0.2);
+      border-bottom-left-radius: 4px;
+    }
+
+    /* ── LOADING DOTS ── */
+    .chat-loading-bubble {
+      background: rgba(255,255,255,0.07);
+      border-radius: 14px;
+      border-bottom-left-radius: 4px;
+      padding: 12px 16px;
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+    .chat-loading-bubble span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: loading-dot 1.1s ease-in-out infinite;
+    }
+    .chat-loading-bubble span:nth-child(2) { animation-delay: 0.18s; }
+    .chat-loading-bubble span:nth-child(3) { animation-delay: 0.36s; }
+
+    @keyframes loading-dot {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.35; }
+      40%            { transform: scale(1);   opacity: 1; }
+    }
+
+    /* ── CHAT EMPTY STATE ── */
+    .chat-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 20px;
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+    .chat-empty-icon { font-size: 2rem; margin-bottom: 4px; }
+
+    /* ── CHAT INPUT AREA ── */
+    #chat-input-area {
+      padding: 10px 12px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+
+    #chat-input {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.84rem;
+      padding: 8px 12px;
+      outline: none;
+      resize: none;
+      min-height: 36px;
+      max-height: 96px;
+      line-height: 1.45;
+      transition: border-color var(--transition);
+      overflow-y: auto;
+    }
+    #chat-input:focus { border-color: rgba(99,102,241,0.45); }
+    #chat-input::placeholder { color: var(--text-muted); }
+
+    #chat-send {
+      background: var(--accent);
+      border: none;
+      border-radius: 9px;
+      color: #fff;
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background var(--transition), opacity var(--transition);
+    }
+    #chat-send:hover:not(:disabled) { background: var(--accent-hover); }
+    #chat-send:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── API KEY SETUP VIEW ── */
+    #chat-setup {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 24px;
+      gap: 14px;
+      text-align: center;
+    }
+
+    .chat-setup-icon { font-size: 2rem; }
+
+    #chat-setup h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    #chat-setup p {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.55;
+      max-width: 260px;
+    }
+
+    #chat-setup-input {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 9px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color var(--transition);
+      letter-spacing: 0.02em;
+    }
+    #chat-setup-input:focus { border-color: rgba(99,102,241,0.5); }
+    #chat-setup-input::placeholder { color: var(--text-muted); font-family: var(--font-sans); letter-spacing: 0; }
+
+    #chat-setup-save {
+      width: 100%;
+      padding: 10px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--transition);
+    }
+    #chat-setup-save:hover { background: var(--accent-hover); }
+
     /* ── RESPONSIVE ── */
     @media (max-width: 480px) {
       .task-card { grid-template-columns: 24px 1fr auto 30px; gap: 6px; padding: 12px 8px; }
       .timer-display { font-size: 1.15rem; }
       .timer-edit-input { font-size: 1.15rem; width: 100px; }
       #header h1 { font-size: 1.1rem; }
+      #chat-panel { right: 12px; left: 12px; width: auto; bottom: 82px; height: 58vh; min-height: 360px; }
+      #chat-fab { bottom: 18px; right: 18px; }
     }
   </style>
 </head>
@@ -470,6 +829,38 @@
   </div>
 </div>
 
+<!-- Chat FAB -->
+<button id="chat-fab" title="Assistente IA">✦</button>
+
+<!-- Chat Panel -->
+<div id="chat-panel" class="hidden" role="complementary" aria-label="Assistente IA">
+  <div id="chat-header">
+    <span id="chat-header-icon">✦</span>
+    <h3>Assistente IA</h3>
+    <button class="chat-icon-btn" id="chat-btn-settings" title="Configurar chave de API">⚙</button>
+    <button class="chat-icon-btn" id="chat-btn-clear" title="Limpar conversa">↺</button>
+    <button class="chat-icon-btn" id="chat-btn-close" title="Fechar">✕</button>
+  </div>
+
+  <!-- API key setup view -->
+  <div id="chat-setup" class="hidden">
+    <div class="chat-setup-icon">🔑</div>
+    <h4>Configurar API Key</h4>
+    <p>Cole aqui sua chave da API do Gemini. Ela será salva apenas no seu navegador.</p>
+    <input id="chat-setup-input" type="password" placeholder="Cole sua chave aqui..." autocomplete="off" spellcheck="false" />
+    <button id="chat-setup-save">Salvar e começar</button>
+  </div>
+
+  <!-- Messages area -->
+  <div id="chat-messages"></div>
+
+  <!-- Input area -->
+  <div id="chat-input-area">
+    <textarea id="chat-input" placeholder='Ex: "adiciona leitura de 30min na terça"' rows="1"></textarea>
+    <button id="chat-send" title="Enviar">↑</button>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -483,17 +874,18 @@
   const LS_RESET_PROMPTED = 'taskmanager_reset_prompted';
   const LS_NO_RESET = 'taskmanager_no_reset_chosen';
   const LS_VERSION  = 'taskmanager_version';
+  const LS_GEMINI_KEY = 'taskmanager_gemini_key';
   const SCHEDULE_VERSION = 3;
 
   /* ── ESTADO ── */
   const AppState = {
-    schedule: {},       // { monday: [{id,name,allocatedSeconds},...], ... }
-    progress: {},       // { date: "YYYY-MM-DD", data: { taskId: remainingSeconds } }
+    schedule: {},
+    progress: {},
     timerMeta: { taskId: null, startedAt: null, remainingAtStart: null },
     activeTaskId: null,
     activeInterval: null,
     currentDay: null,
-    deleteConfirm: {},  // { taskId: timeoutId }
+    deleteConfirm: {},
     editingTimer: false,
   };
 
@@ -508,10 +900,11 @@
 
     try {
       const prog = localStorage.getItem(LS_PROGRESS);
-      AppState.progress = prog ? JSON.parse(prog) : { date: null, data: {} };
-    } catch { AppState.progress = { date: null, data: {} }; }
+      AppState.progress = prog ? JSON.parse(prog) : { date: null, data: {}, completed: {} };
+    } catch { AppState.progress = { date: null, data: {}, completed: {} }; }
 
     if (!AppState.progress.data) AppState.progress.data = {};
+    if (!AppState.progress.completed) AppState.progress.completed = {};
 
     try {
       const tm = localStorage.getItem(LS_TIMER);
@@ -519,13 +912,8 @@
     } catch { AppState.timerMeta = { taskId: null, startedAt: null, remainingAtStart: null }; }
   }
 
-  function saveSchedule() {
-    localStorage.setItem(LS_SCHEDULE, JSON.stringify(AppState.schedule));
-  }
-
-  function saveProgress() {
-    localStorage.setItem(LS_PROGRESS, JSON.stringify(AppState.progress));
-  }
+  function saveSchedule() { localStorage.setItem(LS_SCHEDULE, JSON.stringify(AppState.schedule)); }
+  function saveProgress() { localStorage.setItem(LS_PROGRESS, JSON.stringify(AppState.progress)); }
 
   function saveTimerState() {
     if (AppState.timerMeta.taskId) {
@@ -549,30 +937,20 @@
   function parseTimeInput(str) {
     if (!str || !str.trim()) return null;
     str = str.trim().toLowerCase();
-
-    // Formato H:MM:SS ou H:MM ou M:SS
     if (/^\d+:\d{2}(:\d{2})?$/.test(str)) {
       const parts = str.split(':').map(Number);
       if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
       if (parts.length === 2) return parts[0]*3600 + parts[1]*60;
     }
-
-    // Formato XhYm, Xh, Ym, X (número = minutos)
     const match = str.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
     if (match && (match[1] || match[2] || match[3])) {
-      const h = parseInt(match[1] || 0);
-      const m = parseInt(match[2] || 0);
-      const s = parseInt(match[3] || 0);
-      const total = h*3600 + m*60 + s;
+      const total = parseInt(match[1]||0)*3600 + parseInt(match[2]||0)*60 + parseInt(match[3]||0);
       return total > 0 ? total : null;
     }
-
-    // Número puro = minutos
     if (/^\d+$/.test(str)) {
       const mins = parseInt(str);
       return mins > 0 ? mins * 60 : null;
     }
-
     return null;
   }
 
@@ -582,9 +960,7 @@
     const h = Math.floor(abs / 3600);
     const m = Math.floor((abs % 3600) / 60);
     const s = abs % 60;
-    const mm = String(m).padStart(2, '0');
-    const ss = String(s).padStart(2, '0');
-    return (neg ? '−' : '') + h + ':' + mm + ':' + ss;
+    return (neg ? '−' : '') + h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
   }
 
   function formatAlloc(seconds) {
@@ -605,7 +981,6 @@
   function getRemainingSeconds(taskId) {
     const p = AppState.progress.data[taskId];
     if (p !== undefined) return p;
-    // Fallback: retorna allocated
     for (const day of DAYS) {
       const t = (AppState.schedule[day] || []).find(t => t.id === taskId);
       if (t) return t.allocatedSeconds;
@@ -629,6 +1004,37 @@
     saveProgress();
   }
 
+  /* ── CONCLUSÃO ── */
+  function isCompleted(taskId) {
+    return !!(AppState.progress.completed && AppState.progress.completed[taskId]);
+  }
+
+  function completeTask(dayKey, taskId) {
+    if (AppState.activeTaskId === taskId) pauseTimer();
+    setRemainingSeconds(taskId, 0);
+    AppState.progress.completed[taskId] = true;
+    saveProgress();
+    const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
+    if (card) {
+      card.classList.add('completing');
+      setTimeout(() => renderApp(), 480);
+    } else {
+      renderApp();
+    }
+  }
+
+  function reopenTask(dayKey, taskId) {
+    let allocatedSeconds = 0;
+    for (const day of DAYS) {
+      const t = (AppState.schedule[day] || []).find(t => t.id === taskId);
+      if (t) { allocatedSeconds = t.allocatedSeconds; break; }
+    }
+    setRemainingSeconds(taskId, allocatedSeconds);
+    delete AppState.progress.completed[taskId];
+    saveProgress();
+    renderApp();
+  }
+
   /* ── TAREFAS PADRÃO ── */
   const DEFAULT_TASKS = [
     { name: 'Casa',             allocatedSeconds: 3600  },
@@ -647,11 +1053,9 @@
   function seedDefaultTasks() {
     const storedVersion = parseInt(localStorage.getItem(LS_VERSION) || '0');
     if (storedVersion >= SCHEDULE_VERSION) return;
-
-    // Limpa tudo e re-popula com os novos defaults
     [LS_SCHEDULE, LS_PROGRESS, LS_TIMER, LS_RESET_PROMPTED, LS_NO_RESET].forEach(k => localStorage.removeItem(k));
     AppState.schedule = {};
-    AppState.progress = { date: null, data: {} };
+    AppState.progress = { date: null, data: {}, completed: {} };
     AppState.timerMeta = { taskId: null, startedAt: null, remainingAtStart: null };
     DAYS.forEach(d => {
       AppState.schedule[d] = DEFAULT_TASKS.map(t => ({ id: genId(), name: t.name, allocatedSeconds: t.allocatedSeconds }));
@@ -668,27 +1072,22 @@
     const noReset = localStorage.getItem(LS_NO_RESET);
 
     if (!savedDate || savedDate === today) {
-      // Mesmo dia — inicializar progresso para tarefas novas se necessário
       initProgressForDay(AppState.currentDay);
       if (noReset === today) showResetDayButtonUI(false);
       return;
     }
-
-    // Novo dia detectado
     if (prompted === today) {
-      // Já perguntou hoje — não mostrar de novo; garantir progresso inicializado
       initProgressForDay(AppState.currentDay);
       if (noReset === today) showResetDayButtonUI(false);
       return;
     }
-
     localStorage.setItem(LS_RESET_PROMPTED, today);
     showResetModal();
   }
 
   function performReset() {
     const today = getTodaySP();
-    AppState.progress = { date: today, data: {} };
+    AppState.progress = { date: today, data: {}, completed: {} };
     DAYS.forEach(day => {
       (AppState.schedule[day] || []).forEach(task => {
         AppState.progress.data[task.id] = task.allocatedSeconds;
@@ -701,20 +1100,11 @@
   function showResetModal() {
     const overlay = document.getElementById('modal-overlay');
     overlay.classList.remove('hidden');
-
     const btnReset = document.getElementById('btn-modal-reset');
-    const btnNo = document.getElementById('btn-modal-no');
-
-    // Focus trap
+    const btnNo    = document.getElementById('btn-modal-no');
     btnReset.focus();
     overlay.addEventListener('keydown', trapFocus);
-
-    btnReset.onclick = () => {
-      performReset();
-      hideModal();
-      renderApp();
-    };
-
+    btnReset.onclick = () => { performReset(); hideModal(); renderApp(); };
     btnNo.onclick = () => {
       const today = getTodaySP();
       localStorage.setItem(LS_NO_RESET, today);
@@ -732,21 +1122,18 @@
   function trapFocus(e) {
     if (e.key !== 'Tab') return;
     const focusable = document.querySelectorAll('#modal button');
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
+    const first = focusable[0], last = focusable[focusable.length - 1];
     if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
     else { if (document.activeElement === last) { e.preventDefault(); first.focus(); } }
   }
 
   /* ── BOTÃO RESETAR DIA ── */
   let resetBtnTimeout = null;
-  function showResetDayButtonUI(confirmed) {
+  function showResetDayButtonUI() {
     const btn = document.getElementById('btn-reset-day');
     btn.classList.remove('hidden');
-
     btn.onclick = () => {
       if (btn.classList.contains('confirming')) {
-        // Segunda confirmação
         clearTimeout(resetBtnTimeout);
         performReset();
         btn.textContent = 'Resetar dia';
@@ -773,7 +1160,6 @@
     saveSchedule();
     saveProgress();
     renderApp();
-    // Iniciar edição do nome após render
     setTimeout(() => {
       const card = document.querySelector(`.task-card[data-id="${task.id}"]`);
       if (card) startEditName(dayKey, task.id, card);
@@ -782,44 +1168,31 @@
 
   function deleteTask(dayKey, taskId) {
     if (AppState.deleteConfirm[taskId]) {
-      // Segunda confirmação
       clearTimeout(AppState.deleteConfirm[taskId]);
       delete AppState.deleteConfirm[taskId];
-
       if (AppState.activeTaskId === taskId) pauseTimer();
-
       const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
       if (card) {
         card.style.transition = 'opacity 150ms ease, transform 150ms ease, max-height 200ms ease, margin 200ms ease, padding 200ms ease';
         card.style.opacity = '0';
         card.style.transform = 'translateX(8px)';
         card.style.maxHeight = card.offsetHeight + 'px';
-        requestAnimationFrame(() => {
-          card.style.maxHeight = '0';
-          card.style.padding = '0';
-          card.style.margin = '0';
-        });
+        requestAnimationFrame(() => { card.style.maxHeight='0'; card.style.padding='0'; card.style.margin='0'; });
         setTimeout(() => {
           AppState.schedule[dayKey] = AppState.schedule[dayKey].filter(t => t.id !== taskId);
           delete AppState.progress.data[taskId];
-          saveSchedule();
-          saveProgress();
-          renderApp();
+          delete AppState.progress.completed[taskId];
+          saveSchedule(); saveProgress(); renderApp();
         }, 210);
       } else {
         AppState.schedule[dayKey] = AppState.schedule[dayKey].filter(t => t.id !== taskId);
         delete AppState.progress.data[taskId];
-        saveSchedule();
-        saveProgress();
-        renderApp();
+        delete AppState.progress.completed[taskId];
+        saveSchedule(); saveProgress(); renderApp();
       }
     } else {
-      // Primeira confirmação
       const btn = document.querySelector(`.task-card[data-id="${taskId}"] .btn-delete`);
-      if (btn) {
-        btn.textContent = '✕?';
-        btn.classList.add('confirming');
-      }
+      if (btn) { btn.textContent = '✕?'; btn.classList.add('confirming'); }
       AppState.deleteConfirm[taskId] = setTimeout(() => {
         delete AppState.deleteConfirm[taskId];
         const b = document.querySelector(`.task-card[data-id="${taskId}"] .btn-delete`);
@@ -837,32 +1210,26 @@
     const task = AppState.schedule[dayKey].find(t => t.id === taskId);
     if (!task) return;
     task.allocatedSeconds = secs;
-    // Se remaining > allocated (após redução), ajusta remaining
     const rem = getRemainingSeconds(taskId);
     if (rem > secs) setRemainingSeconds(taskId, secs);
-    saveSchedule();
-    saveProgress();
+    saveSchedule(); saveProgress();
   }
 
   /* ── TIMER ── */
   function calcRemaining() {
     const { startedAt, remainingAtStart } = AppState.timerMeta;
     if (!startedAt) return null;
-    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    return remainingAtStart - elapsed;
+    return remainingAtStart - Math.floor((Date.now() - startedAt) / 1000);
   }
 
   function startTimer(taskId) {
     if (AppState.activeTaskId && AppState.activeTaskId !== taskId) pauseTimer();
     if (AppState.activeTaskId === taskId) return;
-
     const rem = getRemainingSeconds(taskId);
     AppState.timerMeta = { taskId, startedAt: Date.now(), remainingAtStart: rem };
     saveTimerState();
-
     AppState.activeTaskId = taskId;
     AppState.activeInterval = setInterval(tickTimer, 1000);
-
     const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
     if (card) {
       card.classList.add('running');
@@ -876,16 +1243,12 @@
     if (!AppState.activeTaskId) return;
     clearInterval(AppState.activeInterval);
     AppState.activeInterval = null;
-
-    // Salva o tempo calculado pelo timestamp antes de limpar
     const newRem = calcRemaining();
     if (newRem !== null) setRemainingSeconds(AppState.activeTaskId, newRem);
-
     const taskId = AppState.activeTaskId;
     AppState.activeTaskId = null;
     AppState.timerMeta = { taskId: null, startedAt: null, remainingAtStart: null };
     saveTimerState();
-
     const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
     if (card) {
       card.classList.remove('running');
@@ -898,17 +1261,13 @@
   function tickTimer() {
     const newRem = calcRemaining();
     if (newRem === null || !AppState.activeTaskId) return;
-
     AppState.progress.data[AppState.activeTaskId] = newRem;
     saveProgress();
-
     if (!AppState.editingTimer) {
       const card = document.querySelector(`.task-card[data-id="${AppState.activeTaskId}"]`);
       if (card) {
         const display = card.querySelector('.timer-display');
-        if (display && display.tagName !== 'INPUT') {
-          display.textContent = formatTime(newRem);
-        }
+        if (display && display.tagName !== 'INPUT') display.textContent = formatTime(newRem);
         updateNegativeClass(card, newRem);
       }
     }
@@ -917,25 +1276,15 @@
   function restoreTimerIfActive() {
     const { taskId, startedAt } = AppState.timerMeta;
     if (!taskId || !startedAt) return;
-
     const taskExists = DAYS.some(d => (AppState.schedule[d] || []).some(t => t.id === taskId));
     if (!taskExists) {
       AppState.timerMeta = { taskId: null, startedAt: null, remainingAtStart: null };
-      saveTimerState();
-      return;
+      saveTimerState(); return;
     }
-
-    // Atualiza o progresso com o tempo decorrido enquanto estava fora
     const newRem = calcRemaining();
-    if (newRem !== null) {
-      AppState.progress.data[taskId] = newRem;
-      saveProgress();
-    }
-
+    if (newRem !== null) { AppState.progress.data[taskId] = newRem; saveProgress(); }
     AppState.activeTaskId = taskId;
     AppState.activeInterval = setInterval(tickTimer, 1000);
-
-    // Atualiza visual do card se estiver visível (pode ser de outro dia)
     const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
     if (card) {
       card.classList.add('running');
@@ -956,30 +1305,21 @@
     if (!span || span.tagName === 'INPUT') return;
     const task = AppState.schedule[dayKey].find(t => t.id === taskId);
     if (!task) return;
-
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'edit-input task-name-input';
     input.value = task.name;
     span.replaceWith(input);
-    input.focus();
-    input.select();
-
+    input.focus(); input.select();
     const commit = () => {
       const val = input.value.trim();
       if (val) updateTaskName(dayKey, taskId, val);
-      const newSpan = makeNameSpan(dayKey, taskId, val || task.name, card);
-      input.replaceWith(newSpan);
+      input.replaceWith(makeNameSpan(dayKey, taskId, val || task.name, card));
     };
-
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-      if (e.key === 'Escape') {
-        input.removeEventListener('blur', commit);
-        const newSpan = makeNameSpan(dayKey, taskId, task.name, card);
-        input.replaceWith(newSpan);
-      }
+      if (e.key === 'Escape') { input.removeEventListener('blur', commit); input.replaceWith(makeNameSpan(dayKey, taskId, task.name, card)); }
     });
   }
 
@@ -992,22 +1332,17 @@
     return span;
   }
 
-
   function startEditTimer(taskId, card) {
     const display = card.querySelector('.timer-display');
     if (!display || display.tagName === 'INPUT') return;
-
     AppState.editingTimer = true;
     const rem = getRemainingSeconds(taskId);
-
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'edit-input timer-edit-input';
     input.value = formatTime(rem).replace('−', '-');
     display.replaceWith(input);
-    input.focus();
-    input.select();
-
+    input.focus(); input.select();
     const commit = () => {
       AppState.editingTimer = false;
       const raw = input.value.trim().replace(/^-/, '');
@@ -1017,91 +1352,67 @@
       if (secs !== null) {
         newRem = neg ? -secs : secs;
         setRemainingSeconds(taskId, newRem);
-        // Se o timer estiver rodando, reseta o timestamp para o novo valor
         if (AppState.activeTaskId === taskId) {
           AppState.timerMeta = { taskId, startedAt: Date.now(), remainingAtStart: newRem };
           saveTimerState();
         }
-      } else {
-        newRem = rem;
-      }
-      const newDisplay = makeTimerDisplay(taskId, card);
-      input.replaceWith(newDisplay);
+      } else { newRem = rem; }
+      input.replaceWith(makeTimerDisplay(taskId, card));
       updateNegativeClass(card, newRem);
     };
-
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-      if (e.key === 'Escape') {
-        AppState.editingTimer = false;
-        const newDisplay = makeTimerDisplay(taskId, card);
-        input.replaceWith(newDisplay);
-      }
+      if (e.key === 'Escape') { AppState.editingTimer = false; input.replaceWith(makeTimerDisplay(taskId, card)); }
     });
   }
 
-  function makeTimerDisplay(taskId, card) {
+  function makeTimerDisplay(taskId, card, readonly) {
     const span = document.createElement('span');
-    span.className = 'timer-display';
+    span.className = 'timer-display' + (readonly ? ' readonly' : '');
     span.textContent = formatTime(getRemainingSeconds(taskId));
-    span.title = 'Clique para editar o tempo restante';
-    span.addEventListener('click', () => startEditTimer(taskId, card));
+    if (!readonly) {
+      span.title = 'Clique para editar o tempo restante';
+      span.addEventListener('click', () => startEditTimer(taskId, card));
+    }
     return span;
   }
 
   /* ── DRAG AND DROP ── */
-  let dragSrcId = null;
-  let dragSrcDay = null;
+  let dragSrcId = null, dragSrcDay = null;
 
   function bindDragEvents(li, dayKey, taskId) {
     const handle = li.querySelector('.drag-handle');
-
     handle.addEventListener('mousedown', () => { li.draggable = true; });
     handle.addEventListener('mouseup', () => { li.draggable = false; });
-
     li.addEventListener('dragstart', e => {
-      dragSrcId = taskId;
-      dragSrcDay = dayKey;
+      dragSrcId = taskId; dragSrcDay = dayKey;
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', taskId);
       li.classList.add('dragging');
     });
-
     li.addEventListener('dragend', () => {
-      li.draggable = false;
-      li.classList.remove('dragging');
+      li.draggable = false; li.classList.remove('dragging');
       document.querySelectorAll('.task-card').forEach(c => c.classList.remove('drag-over'));
     });
-
     li.addEventListener('dragover', e => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
       if (dragSrcId !== taskId) li.classList.add('drag-over');
     });
-
     li.addEventListener('dragleave', () => { li.classList.remove('drag-over'); });
-
     li.addEventListener('drop', e => {
-      e.preventDefault();
-      li.classList.remove('drag-over');
+      e.preventDefault(); li.classList.remove('drag-over');
       if (dragSrcId === taskId || dragSrcDay !== dayKey) return;
-
       const tasks = AppState.schedule[dayKey];
       const fromIdx = tasks.findIndex(t => t.id === dragSrcId);
-      const toIdx = tasks.findIndex(t => t.id === taskId);
+      const toIdx   = tasks.findIndex(t => t.id === taskId);
       if (fromIdx === -1 || toIdx === -1) return;
-
       const rect = li.getBoundingClientRect();
       const insertBefore = e.clientY < (rect.top + rect.height / 2);
-
-      // Splice depois de calcular inserção relativa ao target
       const [moved] = tasks.splice(fromIdx, 1);
       const newToIdx = tasks.findIndex(t => t.id === taskId);
       tasks.splice(insertBefore ? newToIdx : newToIdx + 1, 0, moved);
-
-      saveSchedule();
-      renderApp();
+      saveSchedule(); renderApp();
     });
   }
 
@@ -1110,60 +1421,65 @@
     const li = document.createElement('li');
     li.className = 'task-card';
     li.dataset.id = task.id;
-
     const rem = getRemainingSeconds(task.id);
     const isActive = AppState.activeTaskId === task.id;
+    const done = isCompleted(task.id);
     if (isActive) li.classList.add('running');
-    if (rem < 0) li.classList.add('negative');
+    if (!done && rem < 0) li.classList.add('negative');
+    if (done) li.classList.add('completed');
 
-    // Drag handle
     const handle = document.createElement('span');
     handle.className = 'drag-handle';
     handle.innerHTML = '⠿';
-    handle.title = 'Arrastar para reordenar';
+    if (!done) handle.title = 'Arrastar para reordenar';
 
-    // Body
     const body = document.createElement('div');
     body.className = 'task-body';
+    body.appendChild(makeNameSpan(dayKey, task.id, task.name, li));
 
-    const nameSpan = makeNameSpan(dayKey, task.id, task.name, li);
-    body.appendChild(nameSpan);
-
-    // Timer section
     const timerSection = document.createElement('div');
     timerSection.className = 'task-timer-section';
+    timerSection.appendChild(makeTimerDisplay(task.id, li, done));
 
-    const timerDisplay = makeTimerDisplay(task.id, li);
+    const buttonsRow = document.createElement('div');
+    buttonsRow.className = 'task-timer-buttons';
 
-    const btnStartPause = document.createElement('button');
-    btnStartPause.className = 'btn-start-pause';
-    btnStartPause.textContent = isActive ? '⏸ Pausar' : '▶ Iniciar';
-    btnStartPause.addEventListener('click', () => {
-      if (AppState.activeTaskId === task.id) pauseTimer();
-      else startTimer(task.id);
-    });
+    if (done) {
+      const btnReopen = document.createElement('button');
+      btnReopen.className = 'btn-start-pause reopen';
+      btnReopen.textContent = '↺ Reabrir';
+      btnReopen.addEventListener('click', () => reopenTask(dayKey, task.id));
+      buttonsRow.appendChild(btnReopen);
+    } else {
+      const btnComplete = document.createElement('button');
+      btnComplete.className = 'btn-complete';
+      btnComplete.textContent = '✓';
+      btnComplete.title = 'Marcar como concluída';
+      btnComplete.addEventListener('click', () => completeTask(dayKey, task.id));
 
-    timerSection.appendChild(timerDisplay);
-    timerSection.appendChild(btnStartPause);
+      const btnStartPause = document.createElement('button');
+      btnStartPause.className = 'btn-start-pause';
+      btnStartPause.textContent = isActive ? '⏸ Pausar' : '▶ Iniciar';
+      btnStartPause.addEventListener('click', () => {
+        if (AppState.activeTaskId === task.id) pauseTimer(); else startTimer(task.id);
+      });
+      buttonsRow.appendChild(btnComplete);
+      buttonsRow.appendChild(btnStartPause);
+    }
+    timerSection.appendChild(buttonsRow);
 
-    // Delete button
     const btnDelete = document.createElement('button');
     btnDelete.className = 'btn-delete';
     btnDelete.textContent = '✕';
     btnDelete.title = 'Excluir tarefa';
-    if (AppState.deleteConfirm[task.id]) {
-      btnDelete.textContent = '✕?';
-      btnDelete.classList.add('confirming');
-    }
+    if (AppState.deleteConfirm[task.id]) { btnDelete.textContent = '✕?'; btnDelete.classList.add('confirming'); }
     btnDelete.addEventListener('click', () => deleteTask(dayKey, task.id));
 
     li.appendChild(handle);
     li.appendChild(body);
     li.appendChild(timerSection);
     li.appendChild(btnDelete);
-
-    bindDragEvents(li, dayKey, task.id);
-
+    if (!done) bindDragEvents(li, dayKey, task.id);
     return li;
   }
 
@@ -1171,7 +1487,6 @@
     const nav = document.getElementById('day-tabs');
     nav.innerHTML = '';
     const todayKey = getTodayDayKey();
-
     DAYS.forEach(day => {
       const btn = document.createElement('button');
       btn.className = 'day-tab';
@@ -1193,22 +1508,415 @@
 
   function renderApp() {
     renderDayTabs();
-
     const list = document.getElementById('task-list');
     list.innerHTML = '';
-
-    const tasks = AppState.schedule[AppState.currentDay] || [];
-
-    if (tasks.length === 0) {
+    const allTasks = AppState.schedule[AppState.currentDay] || [];
+    if (allTasks.length === 0) {
       const empty = document.createElement('li');
       empty.className = 'empty-state';
       empty.textContent = 'Nenhuma tarefa para este dia.';
       list.appendChild(empty);
     } else {
-      tasks.forEach(task => {
-        list.appendChild(renderTaskCard(task, AppState.currentDay));
-      });
+      const sorted = [...allTasks].sort((a, b) => (isCompleted(a.id)?1:0) - (isCompleted(b.id)?1:0));
+      sorted.forEach(task => list.appendChild(renderTaskCard(task, AppState.currentDay)));
     }
+  }
+
+  /* ════════════════════════════════════════
+     CHAT / GEMINI
+  ════════════════════════════════════════ */
+
+  const ChatState = {
+    open: false,
+    showingSetup: false,
+    messages: [],       // {role:'user'|'bot'|'error', text:string}
+    geminiHistory: [],  // Gemini API conversation array
+    loading: false,
+  };
+
+  const LS_GEMINI_KEY_ACTUAL = LS_GEMINI_KEY;
+
+  function getApiKey() { return localStorage.getItem(LS_GEMINI_KEY_ACTUAL) || ''; }
+  function setApiKey(k) { localStorage.setItem(LS_GEMINI_KEY_ACTUAL, k.trim()); }
+
+  /* Day mapping: handles Portuguese / abbreviated inputs from the AI */
+  const DAY_NORMALIZE = {
+    all:'all', todos:'all',
+    sunday:'sunday',    dom:'sunday',    domingo:'sunday',
+    monday:'monday',    seg:'monday',    segunda:'monday',    'segunda-feira':'monday',
+    tuesday:'tuesday',  ter:'tuesday',   terca:'tuesday',     'terça':'tuesday',   'terça-feira':'tuesday',
+    wednesday:'wednesday', qua:'wednesday', quarta:'wednesday',  'quarta-feira':'wednesday',
+    thursday:'thursday',qui:'thursday',  quinta:'thursday',   'quinta-feira':'thursday',
+    friday:'friday',    sex:'friday',    sexta:'friday',      'sexta-feira':'friday',
+    saturday:'saturday',sab:'saturday',  sábado:'saturday',   sabado:'saturday',   'sáb':'saturday',
+  };
+
+  function expandDays(days) {
+    const normalized = days.map(d => DAY_NORMALIZE[d.toLowerCase()] || d.toLowerCase());
+    if (normalized.includes('all')) return [...DAYS];
+    return normalized.filter(d => DAYS.includes(d));
+  }
+
+  function buildScheduleContext() {
+    const lines = ['Estado atual do schedule (tarefas por dia):'];
+    DAYS.forEach(day => {
+      const tasks = AppState.schedule[day] || [];
+      const label = DAY_LABELS[day] + ' (' + day + ')';
+      if (tasks.length > 0) {
+        lines.push('  ' + label + ': ' + tasks.map(t => '"' + t.name + '" (' + Math.round(t.allocatedSeconds/60) + 'min)').join(', '));
+      } else {
+        lines.push('  ' + label + ': (sem tarefas)');
+      }
+    });
+    return lines.join('\n');
+  }
+
+  const GEMINI_TOOLS = [{
+    functionDeclarations: [
+      {
+        name: 'add_task',
+        description: 'Adiciona uma nova tarefa em um ou mais dias da semana.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            name:             { type: 'STRING', description: 'Nome da tarefa' },
+            days:             { type: 'ARRAY',  items: { type: 'STRING' }, description: 'Dias da semana em inglês (monday, tuesday, etc.) ou ["all"] para todos.' },
+            allocatedMinutes: { type: 'NUMBER', description: 'Tempo alocado em minutos' },
+          },
+          required: ['name', 'days', 'allocatedMinutes'],
+        },
+      },
+      {
+        name: 'remove_task',
+        description: 'Remove uma tarefa de um ou mais dias da semana.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            taskName: { type: 'STRING', description: 'Nome (ou parte do nome) da tarefa a remover' },
+            days:     { type: 'ARRAY',  items: { type: 'STRING' }, description: 'Dias onde remover, ou ["all"] para todos.' },
+          },
+          required: ['taskName', 'days'],
+        },
+      },
+      {
+        name: 'update_task',
+        description: 'Renomeia ou altera o tempo alocado de uma tarefa existente.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            taskName:            { type: 'STRING', description: 'Nome atual (ou parte) da tarefa' },
+            days:                { type: 'ARRAY',  items: { type: 'STRING' }, description: 'Dias onde a tarefa existe, ou ["all"].' },
+            newName:             { type: 'STRING', description: 'Novo nome (opcional)' },
+            newAllocatedMinutes: { type: 'NUMBER', description: 'Novo tempo em minutos (opcional)' },
+          },
+          required: ['taskName', 'days'],
+        },
+      },
+    ],
+  }];
+
+  function executeAction(fnName, args) {
+    if (fnName === 'add_task') {
+      const { name, days, allocatedMinutes } = args;
+      const targetDays = expandDays(days);
+      if (!targetDays.length) return { success: false, message: 'Nenhum dia válido fornecido.' };
+      const allocSecs = Math.round(Number(allocatedMinutes) * 60);
+      targetDays.forEach(day => {
+        const task = { id: genId(), name, allocatedSeconds: allocSecs };
+        AppState.schedule[day].push(task);
+        AppState.progress.data[task.id] = allocSecs;
+      });
+      saveSchedule(); saveProgress(); renderApp();
+      return { success: true, addedToDays: targetDays };
+    }
+
+    if (fnName === 'remove_task') {
+      const { taskName, days } = args;
+      const targetDays = expandDays(days);
+      if (!targetDays.length) return { success: false, message: 'Nenhum dia válido.' };
+      let removed = 0;
+      targetDays.forEach(day => {
+        const tasks = AppState.schedule[day] || [];
+        const idx = tasks.findIndex(t => t.name.toLowerCase().includes(taskName.toLowerCase()));
+        if (idx !== -1) {
+          const [task] = tasks.splice(idx, 1);
+          delete AppState.progress.data[task.id];
+          delete AppState.progress.completed[task.id];
+          removed++;
+        }
+      });
+      saveSchedule(); saveProgress(); renderApp();
+      return { success: true, removedCount: removed };
+    }
+
+    if (fnName === 'update_task') {
+      const { taskName, days, newName, newAllocatedMinutes } = args;
+      const targetDays = expandDays(days);
+      if (!targetDays.length) return { success: false, message: 'Nenhum dia válido.' };
+      let updated = 0;
+      targetDays.forEach(day => {
+        const task = (AppState.schedule[day] || []).find(t => t.name.toLowerCase().includes(taskName.toLowerCase()));
+        if (task) {
+          if (newName) task.name = newName;
+          if (newAllocatedMinutes) {
+            task.allocatedSeconds = Math.round(Number(newAllocatedMinutes) * 60);
+            if (AppState.progress.data[task.id] === undefined || AppState.progress.data[task.id] > task.allocatedSeconds) {
+              AppState.progress.data[task.id] = task.allocatedSeconds;
+            }
+          }
+          updated++;
+        }
+      });
+      saveSchedule(); saveProgress(); renderApp();
+      return { success: true, updatedCount: updated };
+    }
+
+    return { success: false, message: 'Função desconhecida: ' + fnName };
+  }
+
+  function buildSystemInstruction() {
+    return [
+      'Você é um assistente para gerenciar tarefas diárias.',
+      'Use as funções disponíveis para adicionar, remover ou editar tarefas.',
+      'Ao usar funções, passe sempre os dias em inglês (monday, tuesday, wednesday, thursday, friday, saturday, sunday) ou "all" para todos os dias.',
+      'Responda sempre em português, de forma breve. Confirme o que foi feito sem repetir detalhes óbvios.',
+      'Não peça confirmação — execute diretamente.',
+      '',
+      buildScheduleContext(),
+    ].join('\n');
+  }
+
+  async function callGemini(contents) {
+    const key = getApiKey();
+    const res = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: buildSystemInstruction() }] },
+          contents,
+          tools: GEMINI_TOOLS,
+          generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
+        }),
+      }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'Erro ' + res.status + ' na API do Gemini.');
+    }
+    return res.json();
+  }
+
+  async function sendChatMessage(userText) {
+    if (ChatState.loading) return;
+    ChatState.loading = true;
+    setChatSendDisabled(true);
+
+    appendMessage('user', userText);
+    const loadingEl = appendLoading();
+
+    try {
+      // First call: user message + history
+      const userPart = { role: 'user', parts: [{ text: userText }] };
+      const contents1 = [...ChatState.geminiHistory, userPart];
+      const data1 = await callGemini(contents1);
+
+      const candidate1 = data1.candidates?.[0];
+      if (!candidate1) throw new Error('Resposta vazia da API.');
+
+      const parts1 = candidate1.content?.parts || [];
+      const functionCalls = parts1.filter(p => p.functionCall);
+
+      // Update history with user message + model response
+      ChatState.geminiHistory.push(userPart);
+      ChatState.geminiHistory.push({ role: 'model', parts: parts1 });
+
+      let finalText = '';
+
+      if (functionCalls.length > 0) {
+        // Execute all function calls
+        const fnResponseParts = functionCalls.map(p => ({
+          functionResponse: {
+            name: p.functionCall.name,
+            response: executeAction(p.functionCall.name, p.functionCall.args),
+          },
+        }));
+
+        // Add function responses to history
+        ChatState.geminiHistory.push({ role: 'user', parts: fnResponseParts });
+
+        // Second call: get natural language confirmation
+        const data2 = await callGemini(ChatState.geminiHistory);
+        const parts2 = data2.candidates?.[0]?.content?.parts || [];
+        finalText = parts2.map(p => p.text || '').join('').trim();
+        ChatState.geminiHistory.push({ role: 'model', parts: parts2 });
+      } else {
+        // Pure text response (no action needed)
+        finalText = parts1.map(p => p.text || '').join('').trim();
+      }
+
+      removeLoading(loadingEl);
+      appendMessage('bot', finalText || 'Ok!');
+    } catch (err) {
+      removeLoading(loadingEl);
+      appendMessage('error', err.message || 'Erro ao contactar a IA.');
+    } finally {
+      ChatState.loading = false;
+      setChatSendDisabled(false);
+    }
+  }
+
+  /* ── CHAT UI HELPERS ── */
+  function appendMessage(role, text) {
+    ChatState.messages.push({ role, text });
+    const container = document.getElementById('chat-messages');
+
+    // Remove empty state if present
+    const emptyEl = container.querySelector('.chat-empty');
+    if (emptyEl) emptyEl.remove();
+
+    const msgEl = document.createElement('div');
+    msgEl.className = 'chat-msg ' + role;
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    bubble.textContent = text;
+    msgEl.appendChild(bubble);
+    container.appendChild(msgEl);
+    container.scrollTop = container.scrollHeight;
+    return msgEl;
+  }
+
+  function appendLoading() {
+    const container = document.getElementById('chat-messages');
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-msg bot';
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-loading-bubble';
+    bubble.innerHTML = '<span></span><span></span><span></span>';
+    wrap.appendChild(bubble);
+    container.appendChild(wrap);
+    container.scrollTop = container.scrollHeight;
+    return wrap;
+  }
+
+  function removeLoading(el) { el?.remove(); }
+
+  function setChatSendDisabled(disabled) {
+    const btn = document.getElementById('chat-send');
+    const inp = document.getElementById('chat-input');
+    if (btn) btn.disabled = disabled;
+    if (inp) inp.disabled = disabled;
+  }
+
+  function renderChatEmpty() {
+    const container = document.getElementById('chat-messages');
+    container.innerHTML = '';
+    const el = document.createElement('div');
+    el.className = 'chat-empty';
+    el.innerHTML = '<div class="chat-empty-icon">✦</div>' +
+      '<div>Olá! Descreva o que você quer fazer com suas tarefas.<br><br>' +
+      '<em>Ex: "adiciona leitura de 30min na terça"<br>"remove duolingo de sábado"<br>"coloca reunião de 1h todos os dias"</em></div>';
+    container.appendChild(el);
+  }
+
+  function showChatSetup() {
+    ChatState.showingSetup = true;
+    document.getElementById('chat-setup').classList.remove('hidden');
+    document.getElementById('chat-messages').classList.add('hidden');
+    document.getElementById('chat-input-area').classList.add('hidden');
+    const inp = document.getElementById('chat-setup-input');
+    inp.value = getApiKey();
+    inp.focus();
+  }
+
+  function hideChatSetup() {
+    ChatState.showingSetup = false;
+    document.getElementById('chat-setup').classList.add('hidden');
+    document.getElementById('chat-messages').classList.remove('hidden');
+    document.getElementById('chat-input-area').classList.remove('hidden');
+  }
+
+  function openChat() {
+    ChatState.open = true;
+    const panel = document.getElementById('chat-panel');
+    panel.classList.remove('hidden');
+    // Re-trigger animation
+    panel.style.animation = 'none';
+    requestAnimationFrame(() => { panel.style.animation = ''; });
+
+    if (!getApiKey()) {
+      showChatSetup();
+    } else {
+      hideChatSetup();
+      if (ChatState.messages.length === 0) renderChatEmpty();
+    }
+  }
+
+  function closeChat() {
+    ChatState.open = false;
+    document.getElementById('chat-panel').classList.add('hidden');
+  }
+
+  function clearChat() {
+    ChatState.messages = [];
+    ChatState.geminiHistory = [];
+    renderChatEmpty();
+  }
+
+  /* ── CHAT EVENT BINDINGS ── */
+  function initChat() {
+    document.getElementById('chat-fab').addEventListener('click', () => {
+      ChatState.open ? closeChat() : openChat();
+    });
+
+    document.getElementById('chat-btn-close').addEventListener('click', closeChat);
+
+    document.getElementById('chat-btn-settings').addEventListener('click', () => {
+      ChatState.showingSetup ? hideChatSetup() : showChatSetup();
+    });
+
+    document.getElementById('chat-btn-clear').addEventListener('click', () => {
+      if (ChatState.showingSetup) return;
+      clearChat();
+    });
+
+    document.getElementById('chat-setup-save').addEventListener('click', () => {
+      const key = document.getElementById('chat-setup-input').value.trim();
+      if (!key) return;
+      setApiKey(key);
+      hideChatSetup();
+      if (ChatState.messages.length === 0) renderChatEmpty();
+      document.getElementById('chat-input').focus();
+    });
+
+    document.getElementById('chat-setup-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('chat-setup-save').click();
+    });
+
+    const chatInput = document.getElementById('chat-input');
+    const chatSend  = document.getElementById('chat-send');
+
+    chatInput.addEventListener('input', () => {
+      chatInput.style.height = 'auto';
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 96) + 'px';
+    });
+
+    chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        chatSend.click();
+      }
+    });
+
+    chatSend.addEventListener('click', () => {
+      const text = chatInput.value.trim();
+      if (!text || ChatState.loading) return;
+      if (!getApiKey()) { openChat(); showChatSetup(); return; }
+      chatInput.value = '';
+      chatInput.style.height = 'auto';
+      sendChatMessage(text);
+    });
   }
 
   /* ── INICIALIZAÇÃO ── */
@@ -1216,15 +1924,15 @@
     loadState();
     seedDefaultTasks();
     AppState.currentDay = getTodayDayKey();
-    checkDailyReset(); // chama initProgressForDay internamente no momento certo
+    checkDailyReset();
     renderApp();
-    restoreTimerIfActive(); // restaura timer após render para que o card já exista no DOM
+    restoreTimerIfActive();
+    initChat();
 
     document.getElementById('btn-add-task').addEventListener('click', () => {
       addTask(AppState.currentDay);
     });
 
-    // Ao retornar para a aba, resync imediato do display (timer continuou pelo timestamp)
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && AppState.activeTaskId) tickTimer();
     });
