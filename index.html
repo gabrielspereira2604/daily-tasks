@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Tasks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ── RESET & TOKENS ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:       #0f0f13;
+      --bg-surface:    #16161d;
+      --bg-card:       rgba(255,255,255,0.04);
+      --bg-card-hover: rgba(255,255,255,0.07);
+      --border-card:   rgba(255,255,255,0.08);
+      --border-hover:  rgba(255,255,255,0.16);
+      --accent:        #6366f1;
+      --accent-soft:   rgba(99,102,241,0.18);
+      --accent-glow:   rgba(99,102,241,0.35);
+      --accent-hover:  #818cf8;
+      --danger:        #ef4444;
+      --danger-soft:   rgba(239,68,68,0.15);
+      --danger-glow:   rgba(239,68,68,0.4);
+      --text-primary:  #f1f5f9;
+      --text-secondary:#94a3b8;
+      --text-muted:    #475569;
+      --font-sans:     'Inter', system-ui, sans-serif;
+      --font-mono:     'JetBrains Mono','Fira Code','Courier New',monospace;
+      --radius-card:   12px;
+      --radius-btn:    8px;
+      --transition:    150ms ease;
+      --z-header:      10;
+      --z-modal:       100;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── APP SHELL ── */
+    #app {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 16px 80px;
+    }
+
+    /* ── HEADER ── */
+    #header {
+      position: sticky;
+      top: 0;
+      z-index: var(--z-header);
+      background: rgba(15,15,19,0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      margin-bottom: 24px;
+    }
+
+    #header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+
+    #btn-reset-day {
+      font-size: 0.8rem;
+      font-family: var(--font-sans);
+      font-weight: 500;
+      color: var(--danger);
+      background: var(--danger-soft);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: var(--radius-btn);
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: background var(--transition), opacity var(--transition);
+    }
+    #btn-reset-day:hover { background: rgba(239,68,68,0.25); }
+    #btn-reset-day.confirming { background: var(--danger); color: #fff; }
+
+    /* ── DAY TABS ── */
+    #day-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    #day-tabs::-webkit-scrollbar { display: none; }
+
+    .day-tab {
+      flex-shrink: 0;
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      padding: 7px 14px;
+      cursor: pointer;
+      transition: color var(--transition), background var(--transition), border-color var(--transition);
+      white-space: nowrap;
+    }
+    .day-tab:hover { color: var(--text-primary); border-color: var(--border-hover); }
+    .day-tab.active {
+      color: #fff;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .day-tab.today:not(.active) {
+      border-color: rgba(99,102,241,0.45);
+      color: var(--accent-hover);
+    }
+
+    /* ── TASK LIST ── */
+    #task-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── TASK CARD ── */
+    .task-card {
+      display: grid;
+      grid-template-columns: 28px 1fr auto 36px;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-card);
+      padding: 14px 12px;
+      transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+      animation: task-add-in 200ms ease;
+    }
+
+    @supports not (backdrop-filter: blur(1px)) {
+      .task-card { background: rgba(22,22,29,0.95); }
+    }
+
+    .task-card:hover { background: var(--bg-card-hover); border-color: var(--border-hover); }
+
+    .task-card.running {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 0 16px var(--accent-glow);
+      animation: task-add-in 200ms ease, pulse-border 2.5s ease-in-out infinite;
+    }
+
+    .task-card.negative .timer-display {
+      color: var(--danger) !important;
+      text-shadow: 0 0 8px var(--danger-glow);
+      animation: pulse-glow 1s ease-in-out infinite;
+    }
+
+    .task-card.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      opacity: 0.7;
+    }
+
+    .task-card.dragging { opacity: 0.35; }
+
+    /* ── DRAG HANDLE ── */
+    .drag-handle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      cursor: grab;
+      font-size: 1rem;
+      user-select: none;
+      padding: 2px 0;
+      transition: color var(--transition);
+    }
+    .drag-handle:hover { color: var(--text-secondary); }
+    .drag-handle:active { cursor: grabbing; }
+
+    /* ── TASK BODY ── */
+    .task-body {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .task-name {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color var(--transition);
+    }
+    .task-name:hover { color: var(--accent-hover); }
+
+
+    /* ── TIMER SECTION ── */
+    .task-timer-section {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .timer-display {
+      font-family: var(--font-mono);
+      font-size: 1.45rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: color var(--transition);
+      white-space: nowrap;
+    }
+    .timer-display:hover { color: var(--accent-hover); }
+
+    .btn-start-pause {
+      background: none;
+      border: 1px solid var(--border-card);
+      border-radius: 6px;
+      color: var(--text-secondary);
+      font-size: 0.7rem;
+      padding: 3px 10px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-weight: 500;
+      transition: color var(--transition), border-color var(--transition), background var(--transition);
+      white-space: nowrap;
+    }
+    .btn-start-pause:hover {
+      color: var(--accent-hover);
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .task-card.running .btn-start-pause {
+      color: var(--accent-hover);
+      border-color: var(--accent);
+    }
+
+    /* ── DELETE BUTTON ── */
+    .btn-delete {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      transition: color var(--transition), background var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      align-self: center;
+    }
+    .btn-delete:hover { color: var(--danger); background: var(--danger-soft); }
+    .btn-delete.confirming { color: var(--danger); background: var(--danger-soft); }
+
+    /* ── INLINE EDIT INPUTS ── */
+    .edit-input {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: inherit;
+      outline: none;
+      padding: 2px 7px;
+      width: 100%;
+      transition: box-shadow var(--transition);
+    }
+    .edit-input:focus { box-shadow: 0 0 0 2px var(--accent-glow); }
+    .edit-input.shake { animation: shake 200ms ease; }
+
+    .timer-edit-input {
+      font-family: var(--font-mono);
+      font-size: 1.45rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      width: 120px;
+      text-align: right;
+    }
+
+    /* ── ADD TASK BUTTON ── */
+    #btn-add-task {
+      width: 100%;
+      margin-top: 10px;
+      padding: 13px;
+      background: transparent;
+      border: 1px dashed var(--border-card);
+      border-radius: var(--radius-card);
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: color var(--transition), border-color var(--transition), background var(--transition);
+    }
+    #btn-add-task:hover {
+      color: var(--accent-hover);
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 0 20px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* ── MODAL ── */
+    #modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: var(--z-modal);
+      padding: 20px;
+    }
+
+    #modal {
+      background: #1c1c26;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 32px 28px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+      animation: modal-in 200ms ease;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    }
+
+    #modal p {
+      font-size: 1.05rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    #modal small {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 24px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-btn);
+      padding: 10px 24px;
+      cursor: pointer;
+      transition: background var(--transition), transform var(--transition);
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:active { transform: scale(0.97); }
+
+    .btn-ghost {
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+      font-weight: 500;
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-btn);
+      padding: 10px 24px;
+      cursor: pointer;
+      transition: color var(--transition), border-color var(--transition);
+    }
+    .btn-ghost:hover { color: var(--text-primary); border-color: var(--border-hover); }
+
+    /* ── UTILITY ── */
+    .hidden { display: none !important; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 0 1px var(--accent), 0 0 10px var(--accent-glow); }
+      50%       { box-shadow: 0 0 0 1px var(--accent), 0 0 24px var(--accent-glow), 0 0 40px rgba(99,102,241,0.15); }
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { text-shadow: 0 0 6px var(--danger-glow); }
+      50%       { text-shadow: 0 0 16px var(--danger-glow), 0 0 28px rgba(239,68,68,0.25); }
+    }
+
+    @keyframes modal-in {
+      from { transform: scale(0.92) translateY(8px); opacity: 0; }
+      to   { transform: scale(1) translateY(0);       opacity: 1; }
+    }
+
+    @keyframes task-add-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%       { transform: translateX(-5px); }
+      60%       { transform: translateX(5px); }
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 480px) {
+      .task-card { grid-template-columns: 24px 1fr auto 30px; gap: 6px; padding: 12px 8px; }
+      .timer-display { font-size: 1.15rem; }
+      .timer-edit-input { font-size: 1.15rem; width: 100px; }
+      #header h1 { font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header id="header">
+    <h1>Daily Tasks</h1>
+    <button id="btn-reset-day" class="hidden">Resetar dia</button>
+  </header>
+
+  <nav id="day-tabs"></nav>
+
+  <main>
+    <ul id="task-list"></ul>
+    <button id="btn-add-task">+ Adicionar tarefa</button>
+  </main>
+</div>
+
+<!-- Modal de reset diário -->
+<div id="modal-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div id="modal">
+    <p id="modal-title">Novo dia!</p>
+    <small>Deseja resetar o progresso das tarefas de hoje?</small>
+    <div class="modal-actions">
+      <button id="btn-modal-reset" class="btn-primary">Resetar</button>
+      <button id="btn-modal-no" class="btn-ghost">Não</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── CONSTANTES ── */
+  const DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  const DAY_LABELS = { sunday:'Dom', monday:'Seg', tuesday:'Ter', wednesday:'Qua', thursday:'Qui', friday:'Sex', saturday:'Sáb' };
+  const LS_SCHEDULE = 'taskmanager_schedule';
+  const LS_PROGRESS = 'taskmanager_progress';
+  const LS_TIMER    = 'taskmanager_timer';
+  const LS_RESET_PROMPTED = 'taskmanager_reset_prompted';
+  const LS_NO_RESET = 'taskmanager_no_reset_chosen';
+  const LS_VERSION  = 'taskmanager_version';
+  const SCHEDULE_VERSION = 2;
+
+  /* ── ESTADO ── */
+  const AppState = {
+    schedule: {},       // { monday: [{id,name,allocatedSeconds},...], ... }
+    progress: {},       // { date: "YYYY-MM-DD", data: { taskId: remainingSeconds } }
+    timerMeta: { taskId: null, startedAt: null, remainingAtStart: null },
+    activeTaskId: null,
+    activeInterval: null,
+    currentDay: null,
+    deleteConfirm: {},  // { taskId: timeoutId }
+    editingTimer: false,
+  };
+
+  /* ── PERSISTÊNCIA ── */
+  function loadState() {
+    try {
+      const sched = localStorage.getItem(LS_SCHEDULE);
+      AppState.schedule = sched ? JSON.parse(sched) : {};
+    } catch { AppState.schedule = {}; }
+
+    DAYS.forEach(d => { if (!AppState.schedule[d]) AppState.schedule[d] = []; });
+
+    try {
+      const prog = localStorage.getItem(LS_PROGRESS);
+      AppState.progress = prog ? JSON.parse(prog) : { date: null, data: {} };
+    } catch { AppState.progress = { date: null, data: {} }; }
+
+    if (!AppState.progress.data) AppState.progress.data = {};
+
+    try {
+      const tm = localStorage.getItem(LS_TIMER);
+      AppState.timerMeta = tm ? JSON.parse(tm) : { taskId: null, startedAt: null, remainingAtStart: null };
+    } catch { AppState.timerMeta = { taskId: null, startedAt: null, remainingAtStart: null }; }
+  }
+
+  function saveSchedule() {
+    localStorage.setItem(LS_SCHEDULE, JSON.stringify(AppState.schedule));
+  }
+
+  function saveProgress() {
+    localStorage.setItem(LS_PROGRESS, JSON.stringify(AppState.progress));
+  }
+
+  function saveTimerState() {
+    if (AppState.timerMeta.taskId) {
+      localStorage.setItem(LS_TIMER, JSON.stringify(AppState.timerMeta));
+    } else {
+      localStorage.removeItem(LS_TIMER);
+    }
+  }
+
+  /* ── DATA / HORA ── */
+  function getTodaySP() {
+    return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  }
+
+  function getTodayDayKey() {
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    return DAYS[d.getDay()];
+  }
+
+  /* ── UTILITÁRIOS DE TEMPO ── */
+  function parseTimeInput(str) {
+    if (!str || !str.trim()) return null;
+    str = str.trim().toLowerCase();
+
+    // Formato H:MM:SS ou H:MM ou M:SS
+    if (/^\d+:\d{2}(:\d{2})?$/.test(str)) {
+      const parts = str.split(':').map(Number);
+      if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+      if (parts.length === 2) return parts[0]*3600 + parts[1]*60;
+    }
+
+    // Formato XhYm, Xh, Ym, X (número = minutos)
+    const match = str.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+    if (match && (match[1] || match[2] || match[3])) {
+      const h = parseInt(match[1] || 0);
+      const m = parseInt(match[2] || 0);
+      const s = parseInt(match[3] || 0);
+      const total = h*3600 + m*60 + s;
+      return total > 0 ? total : null;
+    }
+
+    // Número puro = minutos
+    if (/^\d+$/.test(str)) {
+      const mins = parseInt(str);
+      return mins > 0 ? mins * 60 : null;
+    }
+
+    return null;
+  }
+
+  function formatTime(seconds) {
+    const neg = seconds < 0;
+    const abs = Math.abs(seconds);
+    const h = Math.floor(abs / 3600);
+    const m = Math.floor((abs % 3600) / 60);
+    const s = abs % 60;
+    const mm = String(m).padStart(2, '0');
+    const ss = String(s).padStart(2, '0');
+    return (neg ? '−' : '') + h + ':' + mm + ':' + ss;
+  }
+
+  function formatAlloc(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (h && m) return h + 'h' + m + 'm';
+    if (h) return h + 'h';
+    return m + 'm';
+  }
+
+  /* ── UUID ── */
+  function genId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
+
+  /* ── PROGRESSO ── */
+  function getRemainingSeconds(taskId) {
+    const p = AppState.progress.data[taskId];
+    if (p !== undefined) return p;
+    // Fallback: retorna allocated
+    for (const day of DAYS) {
+      const t = (AppState.schedule[day] || []).find(t => t.id === taskId);
+      if (t) return t.allocatedSeconds;
+    }
+    return 0;
+  }
+
+  function setRemainingSeconds(taskId, secs) {
+    AppState.progress.data[taskId] = secs;
+    saveProgress();
+  }
+
+  function initProgressForDay(dayKey) {
+    const today = getTodaySP();
+    (AppState.schedule[dayKey] || []).forEach(task => {
+      if (AppState.progress.data[task.id] === undefined) {
+        AppState.progress.data[task.id] = task.allocatedSeconds;
+      }
+    });
+    AppState.progress.date = today;
+    saveProgress();
+  }
+
+  /* ── TAREFAS PADRÃO ── */
+  const DEFAULT_TASKS = [
+    { name: 'Casa',             allocatedSeconds: 3600  },
+    { name: 'Trabalho',         allocatedSeconds: 10800 },
+    { name: 'Newsletter',       allocatedSeconds: 1200  },
+    { name: 'Itamaraty',        allocatedSeconds: 1800  },
+    { name: 'Judi',             allocatedSeconds: 1200  },
+    { name: 'Estudos',          allocatedSeconds: 3600  },
+    { name: 'Vídeos dev',       allocatedSeconds: 1800  },
+    { name: 'Vagas linkedin',   allocatedSeconds: 1200  },
+    { name: 'Duolingo + chess', allocatedSeconds: 1200  },
+    { name: 'Daily tasks',      allocatedSeconds: 600   },
+  ];
+
+  function seedDefaultTasks() {
+    const storedVersion = parseInt(localStorage.getItem(LS_VERSION) || '0');
+    if (storedVersion >= SCHEDULE_VERSION) return;
+
+    // Limpa tudo e re-popula com os novos defaults
+    [LS_SCHEDULE, LS_PROGRESS, LS_TIMER, LS_RESET_PROMPTED, LS_NO_RESET].forEach(k => localStorage.removeItem(k));
+    AppState.schedule = {};
+    AppState.progress = { date: null, data: {} };
+    AppState.timerMeta = { taskId: null, startedAt: null, remainingAtStart: null };
+    DAYS.forEach(d => {
+      AppState.schedule[d] = DEFAULT_TASKS.map(t => ({ id: genId(), name: t.name, allocatedSeconds: t.allocatedSeconds }));
+    });
+    saveSchedule();
+    localStorage.setItem(LS_VERSION, String(SCHEDULE_VERSION));
+  }
+
+  /* ── RESET DIÁRIO ── */
+  function checkDailyReset() {
+    const today = getTodaySP();
+    const savedDate = AppState.progress.date;
+    const prompted = localStorage.getItem(LS_RESET_PROMPTED);
+    const noReset = localStorage.getItem(LS_NO_RESET);
+
+    if (!savedDate || savedDate === today) {
+      // Mesmo dia — inicializar progresso para tarefas novas se necessário
+      initProgressForDay(AppState.currentDay);
+      if (noReset === today) showResetDayButtonUI(false);
+      return;
+    }
+
+    // Novo dia detectado
+    if (prompted === today) {
+      // Já perguntou hoje — não mostrar de novo; garantir progresso inicializado
+      initProgressForDay(AppState.currentDay);
+      if (noReset === today) showResetDayButtonUI(false);
+      return;
+    }
+
+    localStorage.setItem(LS_RESET_PROMPTED, today);
+    showResetModal();
+  }
+
+  function performReset() {
+    const today = getTodaySP();
+    AppState.progress = { date: today, data: {} };
+    DAYS.forEach(day => {
+      (AppState.schedule[day] || []).forEach(task => {
+        AppState.progress.data[task.id] = task.allocatedSeconds;
+      });
+    });
+    saveProgress();
+  }
+
+  /* ── MODAL ── */
+  function showResetModal() {
+    const overlay = document.getElementById('modal-overlay');
+    overlay.classList.remove('hidden');
+
+    const btnReset = document.getElementById('btn-modal-reset');
+    const btnNo = document.getElementById('btn-modal-no');
+
+    // Focus trap
+    btnReset.focus();
+    overlay.addEventListener('keydown', trapFocus);
+
+    btnReset.onclick = () => {
+      performReset();
+      hideModal();
+      renderApp();
+    };
+
+    btnNo.onclick = () => {
+      const today = getTodaySP();
+      localStorage.setItem(LS_NO_RESET, today);
+      initProgressForDay(AppState.currentDay);
+      hideModal();
+      showResetDayButtonUI(false);
+    };
+  }
+
+  function hideModal() {
+    document.getElementById('modal-overlay').classList.add('hidden');
+    document.getElementById('modal-overlay').removeEventListener('keydown', trapFocus);
+  }
+
+  function trapFocus(e) {
+    if (e.key !== 'Tab') return;
+    const focusable = document.querySelectorAll('#modal button');
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
+    else { if (document.activeElement === last) { e.preventDefault(); first.focus(); } }
+  }
+
+  /* ── BOTÃO RESETAR DIA ── */
+  let resetBtnTimeout = null;
+  function showResetDayButtonUI(confirmed) {
+    const btn = document.getElementById('btn-reset-day');
+    btn.classList.remove('hidden');
+
+    btn.onclick = () => {
+      if (btn.classList.contains('confirming')) {
+        // Segunda confirmação
+        clearTimeout(resetBtnTimeout);
+        performReset();
+        btn.textContent = 'Resetar dia';
+        btn.classList.remove('confirming');
+        btn.classList.add('hidden');
+        localStorage.removeItem(LS_NO_RESET);
+        renderApp();
+      } else {
+        btn.textContent = 'Tem certeza?';
+        btn.classList.add('confirming');
+        resetBtnTimeout = setTimeout(() => {
+          btn.textContent = 'Resetar dia';
+          btn.classList.remove('confirming');
+        }, 4000);
+      }
+    };
+  }
+
+  /* ── CRUD TAREFAS ── */
+  function addTask(dayKey) {
+    const task = { id: genId(), name: 'Nova tarefa', allocatedSeconds: 3600 };
+    AppState.schedule[dayKey].push(task);
+    AppState.progress.data[task.id] = task.allocatedSeconds;
+    saveSchedule();
+    saveProgress();
+    renderApp();
+    // Iniciar edição do nome após render
+    setTimeout(() => {
+      const card = document.querySelector(`.task-card[data-id="${task.id}"]`);
+      if (card) startEditName(dayKey, task.id, card);
+    }, 50);
+  }
+
+  function deleteTask(dayKey, taskId) {
+    if (AppState.deleteConfirm[taskId]) {
+      // Segunda confirmação
+      clearTimeout(AppState.deleteConfirm[taskId]);
+      delete AppState.deleteConfirm[taskId];
+
+      if (AppState.activeTaskId === taskId) pauseTimer();
+
+      const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
+      if (card) {
+        card.style.transition = 'opacity 150ms ease, transform 150ms ease, max-height 200ms ease, margin 200ms ease, padding 200ms ease';
+        card.style.opacity = '0';
+        card.style.transform = 'translateX(8px)';
+        card.style.maxHeight = card.offsetHeight + 'px';
+        requestAnimationFrame(() => {
+          card.style.maxHeight = '0';
+          card.style.padding = '0';
+          card.style.margin = '0';
+        });
+        setTimeout(() => {
+          AppState.schedule[dayKey] = AppState.schedule[dayKey].filter(t => t.id !== taskId);
+          delete AppState.progress.data[taskId];
+          saveSchedule();
+          saveProgress();
+          renderApp();
+        }, 210);
+      } else {
+        AppState.schedule[dayKey] = AppState.schedule[dayKey].filter(t => t.id !== taskId);
+        delete AppState.progress.data[taskId];
+        saveSchedule();
+        saveProgress();
+        renderApp();
+      }
+    } else {
+      // Primeira confirmação
+      const btn = document.querySelector(`.task-card[data-id="${taskId}"] .btn-delete`);
+      if (btn) {
+        btn.textContent = '✕?';
+        btn.classList.add('confirming');
+      }
+      AppState.deleteConfirm[taskId] = setTimeout(() => {
+        delete AppState.deleteConfirm[taskId];
+        const b = document.querySelector(`.task-card[data-id="${taskId}"] .btn-delete`);
+        if (b) { b.textContent = '✕'; b.classList.remove('confirming'); }
+      }, 3000);
+    }
+  }
+
+  function updateTaskName(dayKey, taskId, name) {
+    const task = AppState.schedule[dayKey].find(t => t.id === taskId);
+    if (task) { task.name = name; saveSchedule(); }
+  }
+
+  function updateTaskAlloc(dayKey, taskId, secs) {
+    const task = AppState.schedule[dayKey].find(t => t.id === taskId);
+    if (!task) return;
+    task.allocatedSeconds = secs;
+    // Se remaining > allocated (após redução), ajusta remaining
+    const rem = getRemainingSeconds(taskId);
+    if (rem > secs) setRemainingSeconds(taskId, secs);
+    saveSchedule();
+    saveProgress();
+  }
+
+  /* ── TIMER ── */
+  function calcRemaining() {
+    const { startedAt, remainingAtStart } = AppState.timerMeta;
+    if (!startedAt) return null;
+    const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+    return remainingAtStart - elapsed;
+  }
+
+  function startTimer(taskId) {
+    if (AppState.activeTaskId && AppState.activeTaskId !== taskId) pauseTimer();
+    if (AppState.activeTaskId === taskId) return;
+
+    const rem = getRemainingSeconds(taskId);
+    AppState.timerMeta = { taskId, startedAt: Date.now(), remainingAtStart: rem };
+    saveTimerState();
+
+    AppState.activeTaskId = taskId;
+    AppState.activeInterval = setInterval(tickTimer, 1000);
+
+    const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
+    if (card) {
+      card.classList.add('running');
+      const btn = card.querySelector('.btn-start-pause');
+      if (btn) btn.textContent = '⏸ Pausar';
+      updateNegativeClass(card, rem);
+    }
+  }
+
+  function pauseTimer() {
+    if (!AppState.activeTaskId) return;
+    clearInterval(AppState.activeInterval);
+    AppState.activeInterval = null;
+
+    // Salva o tempo calculado pelo timestamp antes de limpar
+    const newRem = calcRemaining();
+    if (newRem !== null) setRemainingSeconds(AppState.activeTaskId, newRem);
+
+    const taskId = AppState.activeTaskId;
+    AppState.activeTaskId = null;
+    AppState.timerMeta = { taskId: null, startedAt: null, remainingAtStart: null };
+    saveTimerState();
+
+    const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
+    if (card) {
+      card.classList.remove('running');
+      const btn = card.querySelector('.btn-start-pause');
+      if (btn) btn.textContent = '▶ Iniciar';
+      if (newRem !== null) updateNegativeClass(card, newRem);
+    }
+  }
+
+  function tickTimer() {
+    const newRem = calcRemaining();
+    if (newRem === null || !AppState.activeTaskId) return;
+
+    AppState.progress.data[AppState.activeTaskId] = newRem;
+    saveProgress();
+
+    if (!AppState.editingTimer) {
+      const card = document.querySelector(`.task-card[data-id="${AppState.activeTaskId}"]`);
+      if (card) {
+        const display = card.querySelector('.timer-display');
+        if (display && display.tagName !== 'INPUT') {
+          display.textContent = formatTime(newRem);
+        }
+        updateNegativeClass(card, newRem);
+      }
+    }
+  }
+
+  function restoreTimerIfActive() {
+    const { taskId, startedAt } = AppState.timerMeta;
+    if (!taskId || !startedAt) return;
+
+    const taskExists = DAYS.some(d => (AppState.schedule[d] || []).some(t => t.id === taskId));
+    if (!taskExists) {
+      AppState.timerMeta = { taskId: null, startedAt: null, remainingAtStart: null };
+      saveTimerState();
+      return;
+    }
+
+    // Atualiza o progresso com o tempo decorrido enquanto estava fora
+    const newRem = calcRemaining();
+    if (newRem !== null) {
+      AppState.progress.data[taskId] = newRem;
+      saveProgress();
+    }
+
+    AppState.activeTaskId = taskId;
+    AppState.activeInterval = setInterval(tickTimer, 1000);
+
+    // Atualiza visual do card se estiver visível (pode ser de outro dia)
+    const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
+    if (card) {
+      card.classList.add('running');
+      const btn = card.querySelector('.btn-start-pause');
+      if (btn) btn.textContent = '⏸ Pausar';
+      if (newRem !== null) updateNegativeClass(card, newRem);
+    }
+  }
+
+  function updateNegativeClass(card, secs) {
+    if (secs < 0) card.classList.add('negative');
+    else card.classList.remove('negative');
+  }
+
+  /* ── EDIÇÃO INLINE ── */
+  function startEditName(dayKey, taskId, card) {
+    const span = card.querySelector('.task-name');
+    if (!span || span.tagName === 'INPUT') return;
+    const task = AppState.schedule[dayKey].find(t => t.id === taskId);
+    if (!task) return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'edit-input task-name-input';
+    input.value = task.name;
+    span.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const commit = () => {
+      const val = input.value.trim();
+      if (val) updateTaskName(dayKey, taskId, val);
+      const newSpan = makeNameSpan(dayKey, taskId, val || task.name, card);
+      input.replaceWith(newSpan);
+    };
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') {
+        input.removeEventListener('blur', commit);
+        const newSpan = makeNameSpan(dayKey, taskId, task.name, card);
+        input.replaceWith(newSpan);
+      }
+    });
+  }
+
+  function makeNameSpan(dayKey, taskId, name, card) {
+    const span = document.createElement('span');
+    span.className = 'task-name';
+    span.textContent = name;
+    span.title = 'Clique para editar o nome';
+    span.addEventListener('click', () => startEditName(dayKey, taskId, card));
+    return span;
+  }
+
+
+  function startEditTimer(taskId, card) {
+    const display = card.querySelector('.timer-display');
+    if (!display || display.tagName === 'INPUT') return;
+
+    AppState.editingTimer = true;
+    const rem = getRemainingSeconds(taskId);
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'edit-input timer-edit-input';
+    input.value = formatTime(rem).replace('−', '-');
+    display.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const commit = () => {
+      AppState.editingTimer = false;
+      const raw = input.value.trim().replace(/^-/, '');
+      const neg = input.value.trim().startsWith('-');
+      const secs = parseTimeInput(raw);
+      let newRem;
+      if (secs !== null) {
+        newRem = neg ? -secs : secs;
+        setRemainingSeconds(taskId, newRem);
+        // Se o timer estiver rodando, reseta o timestamp para o novo valor
+        if (AppState.activeTaskId === taskId) {
+          AppState.timerMeta = { taskId, startedAt: Date.now(), remainingAtStart: newRem };
+          saveTimerState();
+        }
+      } else {
+        newRem = rem;
+      }
+      const newDisplay = makeTimerDisplay(taskId, card);
+      input.replaceWith(newDisplay);
+      updateNegativeClass(card, newRem);
+    };
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+      if (e.key === 'Escape') {
+        AppState.editingTimer = false;
+        const newDisplay = makeTimerDisplay(taskId, card);
+        input.replaceWith(newDisplay);
+      }
+    });
+  }
+
+  function makeTimerDisplay(taskId, card) {
+    const span = document.createElement('span');
+    span.className = 'timer-display';
+    span.textContent = formatTime(getRemainingSeconds(taskId));
+    span.title = 'Clique para editar o tempo restante';
+    span.addEventListener('click', () => startEditTimer(taskId, card));
+    return span;
+  }
+
+  /* ── DRAG AND DROP ── */
+  let dragSrcId = null;
+  let dragSrcDay = null;
+
+  function bindDragEvents(li, dayKey, taskId) {
+    const handle = li.querySelector('.drag-handle');
+
+    handle.addEventListener('mousedown', () => { li.draggable = true; });
+    handle.addEventListener('mouseup', () => { li.draggable = false; });
+
+    li.addEventListener('dragstart', e => {
+      dragSrcId = taskId;
+      dragSrcDay = dayKey;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', taskId);
+      li.classList.add('dragging');
+    });
+
+    li.addEventListener('dragend', () => {
+      li.draggable = false;
+      li.classList.remove('dragging');
+      document.querySelectorAll('.task-card').forEach(c => c.classList.remove('drag-over'));
+    });
+
+    li.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (dragSrcId !== taskId) li.classList.add('drag-over');
+    });
+
+    li.addEventListener('dragleave', () => { li.classList.remove('drag-over'); });
+
+    li.addEventListener('drop', e => {
+      e.preventDefault();
+      li.classList.remove('drag-over');
+      if (dragSrcId === taskId || dragSrcDay !== dayKey) return;
+
+      const tasks = AppState.schedule[dayKey];
+      const fromIdx = tasks.findIndex(t => t.id === dragSrcId);
+      const toIdx = tasks.findIndex(t => t.id === taskId);
+      if (fromIdx === -1 || toIdx === -1) return;
+
+      const rect = li.getBoundingClientRect();
+      const insertBefore = e.clientY < (rect.top + rect.height / 2);
+
+      // Splice depois de calcular inserção relativa ao target
+      const [moved] = tasks.splice(fromIdx, 1);
+      const newToIdx = tasks.findIndex(t => t.id === taskId);
+      tasks.splice(insertBefore ? newToIdx : newToIdx + 1, 0, moved);
+
+      saveSchedule();
+      renderApp();
+    });
+  }
+
+  /* ── RENDER ── */
+  function renderTaskCard(task, dayKey) {
+    const li = document.createElement('li');
+    li.className = 'task-card';
+    li.dataset.id = task.id;
+
+    const rem = getRemainingSeconds(task.id);
+    const isActive = AppState.activeTaskId === task.id;
+    if (isActive) li.classList.add('running');
+    if (rem < 0) li.classList.add('negative');
+
+    // Drag handle
+    const handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.innerHTML = '⠿';
+    handle.title = 'Arrastar para reordenar';
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'task-body';
+
+    const nameSpan = makeNameSpan(dayKey, task.id, task.name, li);
+    body.appendChild(nameSpan);
+
+    // Timer section
+    const timerSection = document.createElement('div');
+    timerSection.className = 'task-timer-section';
+
+    const timerDisplay = makeTimerDisplay(task.id, li);
+
+    const btnStartPause = document.createElement('button');
+    btnStartPause.className = 'btn-start-pause';
+    btnStartPause.textContent = isActive ? '⏸ Pausar' : '▶ Iniciar';
+    btnStartPause.addEventListener('click', () => {
+      if (AppState.activeTaskId === task.id) pauseTimer();
+      else startTimer(task.id);
+    });
+
+    timerSection.appendChild(timerDisplay);
+    timerSection.appendChild(btnStartPause);
+
+    // Delete button
+    const btnDelete = document.createElement('button');
+    btnDelete.className = 'btn-delete';
+    btnDelete.textContent = '✕';
+    btnDelete.title = 'Excluir tarefa';
+    if (AppState.deleteConfirm[task.id]) {
+      btnDelete.textContent = '✕?';
+      btnDelete.classList.add('confirming');
+    }
+    btnDelete.addEventListener('click', () => deleteTask(dayKey, task.id));
+
+    li.appendChild(handle);
+    li.appendChild(body);
+    li.appendChild(timerSection);
+    li.appendChild(btnDelete);
+
+    bindDragEvents(li, dayKey, task.id);
+
+    return li;
+  }
+
+  function renderDayTabs() {
+    const nav = document.getElementById('day-tabs');
+    nav.innerHTML = '';
+    const todayKey = getTodayDayKey();
+
+    DAYS.forEach(day => {
+      const btn = document.createElement('button');
+      btn.className = 'day-tab';
+      btn.textContent = DAY_LABELS[day];
+      btn.dataset.day = day;
+      if (day === AppState.currentDay) btn.classList.add('active');
+      if (day === todayKey) btn.classList.add('today');
+      btn.addEventListener('click', () => switchDay(day));
+      nav.appendChild(btn);
+    });
+  }
+
+  function switchDay(dayKey) {
+    if (AppState.activeTaskId) pauseTimer();
+    AppState.currentDay = dayKey;
+    initProgressForDay(dayKey);
+    renderApp();
+  }
+
+  function renderApp() {
+    renderDayTabs();
+
+    const list = document.getElementById('task-list');
+    list.innerHTML = '';
+
+    const tasks = AppState.schedule[AppState.currentDay] || [];
+
+    if (tasks.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'empty-state';
+      empty.textContent = 'Nenhuma tarefa para este dia.';
+      list.appendChild(empty);
+    } else {
+      tasks.forEach(task => {
+        list.appendChild(renderTaskCard(task, AppState.currentDay));
+      });
+    }
+  }
+
+  /* ── INICIALIZAÇÃO ── */
+  document.addEventListener('DOMContentLoaded', () => {
+    loadState();
+    seedDefaultTasks();
+    AppState.currentDay = getTodayDayKey();
+    checkDailyReset(); // chama initProgressForDay internamente no momento certo
+    renderApp();
+    restoreTimerIfActive(); // restaura timer após render para que o card já exista no DOM
+
+    document.getElementById('btn-add-task').addEventListener('click', () => {
+      addTask(AppState.currentDay);
+    });
+
+    // Ao retornar para a aba, resync imediato do display (timer continuou pelo timestamp)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && AppState.activeTaskId) tickTimer();
+    });
+  });
+
+})();
+</script>
+</body>
+</html>
